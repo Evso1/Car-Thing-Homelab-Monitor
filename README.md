@@ -2,19 +2,18 @@
 
 Turn your discontinued Spotify Car Thing into a live monitoring dashboard for your homelab. No cloud services, no subscriptions—just a USB cable and some Python.
 
-## What This Does
+## Features
+- Real-time CPU, memory, disk, and temperature stats
+- Live system logs (e.g., network switch, UFW firewall)
+- One-click security scan (runs custom script)
+- Fully offline — no cloud, no Wi-Fi needed
+- Zero flashing after setup — edit HTML on Pi, refresh Car Thing
 
-Your Car Thing becomes a 4-page monitoring display showing:
-- **System Stats** - CPU, RAM, disk usage, temperature, top processes
-- **Network Logs** - Live switch/router logs
-- **Firewall Activity** - Blocked connections and security events  
-- **Custom Scripts** - Run security audits or any bash script on-demand
-
-Everything updates in real-time. The Car Thing connects directly to your Pi via USB—no network configuration needed.
-
-## Why I Built This
-
-I had a Car Thing collecting dust after Spotify bricked it. I wanted a dedicated display for my homelab but didn't want to waste a full Pi or monitor. Turns out the Car Thing is just a tiny Linux computer with a nice screen—perfect for this.
+## How This Works
+- Flask server on your Pi serves both the API endpoints AND the HTML dashboard
+- Car Thing has a tiny redirect.html file that points to your Pi's IP
+- Car Thing loads the dashboard from your Pi over the network
+- No re-flashing needed after initial setup - just edit index.html on the Pi and refresh
 
 ## Hardware You'll Need
 
@@ -51,6 +50,8 @@ pip install flask flask-cors psutil
 
 Create `api_server.py` (see [api_server.py](#api_serverpy) below).
 
+The Flask server serves BOTH the API endpoints AND the HTML dashboard at the root / route.
+
 ### 2. Configure Your Logs
 
 Edit `api_server.py` and update these paths to match your setup:
@@ -60,6 +61,7 @@ SWITCH_LOG_PATH = '/var/log/switch/switch.log'      # Your switch logs
 UFW_LOG_PATH = '/var/log/ufw.log'                   # Firewall logs
 SECURITY_SCRIPT = '/home/user/scripts/security.sh'  # Optional custom script
 ```
+OR whatever logs you choose to integrate.
 
 ### 3. Grant Sudo Permissions
 
@@ -130,33 +132,32 @@ sudo ufw reload
 
 ### 7. Push Dashboard to Car Thing
 
-On your computer (with ADB installed):
+The Car Thing only needs a tiny redirect file that points to your Pi:
 
-1. Download `index.html` from this repo
-2. Edit line 238 - change `PI_IP` to your Pi's IP address
-3. Push to Car Thing:
+Edit `redirect.html` with your actual Pi IP address.
+
+Push to Car Thing:
 
 ```bash
-# Connect Car Thing via USB
+#Connect carthing via USB
 adb devices
 
-# Mount filesystem as writable
+#Mount filesystem as writable
 adb shell mount -o remount,rw /
 
-# Backup original (optional)
+#Backup original (optional)
 adb shell mv /usr/share/qt-superbird-app/webapp /usr/share/qt-superbird-app/webapp-backup
 
 # Create directory
 adb shell mkdir -p /usr/share/qt-superbird-app/webapp
 
-# Push dashboard
-adb push index.html /usr/share/qt-superbird-app/webapp/index.html
+# Push redirect file
+adb push redirect.html /usr/share/qt-superbird-app/webapp/index.html
 
 # Reboot
 adb shell reboot
 ```
-
-Wait 30 seconds for it to reboot. You should see the orange dashboard!
+Wait 30 seconds for it to reboot. The Car Thing will load the redirect, which immediately loads the dashboard from your Pi!
 
 ## Button Layout
 
@@ -177,11 +178,16 @@ The Car Thing has 4 physical buttons:
 ```
 carthing-monitor/
 ├── api_server.py       # Flask backend serving stats and logs
-├── index.html          # Dashboard UI (pushed to Car Thing)
+├── index.html          # Dashboard UI (served by flask)
 └── venv/              # Python virtual environment
 ```
+The Car Thing only has the `redirect.html` file -> it loads everthing else from the Pi.
 
 ## Customization
+
+Since the dashboard is served from the Pi, just edit index.html on your Pi and reload the Car Thing (unplug/replug USB)
+
+No need to push via ADB again!
 
 ### Change Refresh Rates
 
@@ -201,19 +207,11 @@ The dashboard supports up to 4 pages. To add a new page:
 3. Create a new API endpoint in `api_server.py`
 4. Add update function in JavaScript
 
-### Different Color Schemes
-
-Search for `#ff8800` in `index.html` and replace with your color:
-- Green: `#00ff00`
-- Blue: `#00ccff`
-- Red: `#ff0000`
-- Purple: `#cc00ff`
-
 ## Troubleshooting
 
 **Car Thing shows "Cannot connect to Pi"**
-- Check API is running: `sudo systemctl status carthing-api`
-- Verify firewall: `sudo ufw status | grep 5000`
+- Check API is running
+- Verify firewall
 - Test API: `curl http://localhost:5000/api/system`
 
 **Button presses do nothing**
@@ -221,13 +219,9 @@ Search for `#ff8800` in `index.html` and replace with your color:
 - If your firmware is different, you might need to remap in the JavaScript
 
 **Logs not showing**
-- Verify log paths exist: `ls -la /var/log/switch/`
-- Check sudo permissions: `sudo -l`
-- Look at API logs: `sudo journalctl -u carthing-api -f`
-
-**Temperature shows "N/A"**
-- Only works on Raspberry Pi with thermal sensors
-- Other SBCs might use different paths
+- Verify log paths exist
+- Check sudo permissions
+- Look at API logs
 
 ## API Endpoints
 
