@@ -35,7 +35,7 @@ If your Car Thing still shows the Spotify interface, you'll need to flash it fir
 
 ### 1. Set Up the Flask Server
 
-SSH into your Pi and set up the API server:
+Access your Pi and set up the API server:
 
 ```bash
 # Create project directory
@@ -261,7 +261,7 @@ Pull requests welcome if you implement any of these!
 
 ## Credits
 
-- [Car Thing Hax Community](https://discord.gg/carthing) for reverse-engineering the hardware
+- [Car Thing Hax Community](https://discord.com/invite/car-thing-hax-community-1042954149786046604) for reverse-engineering the hardware
 - [superbird-tool](https://github.com/Car-Thing-Hax-Community/superbird-tool) for making flashing easy
 - Everyone who refused to let Spotify brick their hardware
 
