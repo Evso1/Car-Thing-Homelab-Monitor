@@ -27,9 +27,9 @@ I had a Car Thing collecting dust after Spotify bricked it. I wanted a dedicated
 
 Your Car Thing needs custom firmware with ADB enabled. I used:
 - [superbird-tool](https://github.com/Car-Thing-Hax-Community/superbird-tool) for flashing
-- [ThingLabs firmware](https://github.com/thinglabs-io) (or any ADB-enabled variant)
+- [ThingLabs firmware](https://thingify.tools/) (or any ADB-enabled variant)
 
-If your Car Thing still shows the Spotify interface, you'll need to flash it first. There are good guides in the [Car Thing Hax Community Discord](https://discord.gg/carthing).
+If your Car Thing still shows the Spotify interface, you'll need to flash it first. There are good guides in the [Car Thing Hax Community Discord](https://discord.com/invite/car-thing-hax-community-1042954149786046604).
 
 ## Quick Start
 
