@@ -90,8 +90,9 @@ Open a browser to `http://your-pi-ip:5000/api/system` - you should see JSON with
 
 ### 5. Configure Firewall
 
+The Car Thing connects via USB creating a network
 ```bash
-sudo ufw allow from `Your CarThing IP` to any port 5000 proto tcp comment 'Car Thing API - USB'
+sudo ufw allow from 192.168.x.x/24 to any port 5000 proto tcp
 sudo ufw reload
 ```
 
@@ -147,7 +148,6 @@ carthing-monitor/
 ├── access.log          # API request logs (rotated weekly)
 └── venv/              # Python virtual environment
 ```
-The Car Thing only has the `redirect.html` file -> it loads everthing else from the Pi.
 
 ## Customization
 
@@ -203,22 +203,14 @@ GET /health              # Health check
 
 ## Security Implementation
 
-This porject follows security best practices:
+Basic security features included:
 
-** Network Security
-- Firewall restricted to USB network only
-- No internet exposure: flask only accessable on trusted local network
-- Minimal open ports
+- **Firewall**: Port 5000 restricted to USB interface (`192.168.x.x/24`)
+- **Request logging**: All API access logged to `access.log`
+- **Minimal sudo**: Only essential commands whitelisted
+- **Debug disabled**: No system info leakage
 
-** System Security
-- Minimal sudo permissions: only specific commands allowed via sudoers
-- Virtual environment: isolated Python dependencies
-- Debug mode disabled: No system info leakage
-- Request logging: all api access logged to access.log
-
-** File Security
-- Log rotation: access.logs rotated weekly to prevent disk fill
-- Restricted file permisions: services runs on a dedicated user
+This setup is secure for a homelab on a trusted network. Don't expose port 5000 to the internet.
 
 ## Future Ideas
 - Docker container monitoring
