@@ -4,7 +4,7 @@ Turn your discontinued Spotify Car Thing into a live monitoring dashboard for yo
 
 ![System Monitor](/Screenshots/SystemMonitor-screenshot.jpg)
 
-Screenshots of other screens (without data) are available in /Screenshots
+Screenshots of other pages (without data) are available in /Screenshots
 
 ## Features
 - Real-time CPU, memory, disk, and temperature stats
