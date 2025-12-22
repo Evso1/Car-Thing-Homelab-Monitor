@@ -2,7 +2,7 @@
 
 Turn your discontinued Spotify Car Thing into a live monitoring dashboard for your homelab. No cloud services, no subscriptions—just a USB cable and some Python.
 
-![System Monitor](SystemMonitor-screenshot.png)
+![System Monitor](SystemMonitor-screenshot.jpg)
 
 ## Features
 - Real-time CPU, memory, disk, and temperature stats
