@@ -53,7 +53,7 @@ source venv/bin/activate
 pip install flask flask-cors psutil
 ```
 
-Create `api_server.py` (see [api_server.py](#api_serverpy) below).
+Create `api_server.py`
 
 The Flask server serves BOTH the API endpoints AND the HTML dashboard at the root / route.
 
