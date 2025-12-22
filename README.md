@@ -12,6 +12,7 @@ Turn your discontinued Spotify Car Thing into a live monitoring dashboard for yo
 ## How This Works
 - Flask server on your Pi serves both the API endpoints AND the HTML dashboard
 - Car Thing has a tiny redirect.html file that points to your Pi's IP
+- When plugged into the Pi via USB, the Car Thing gets network access through USB Ethernet (RNDIS)
 - Car Thing loads the dashboard from your Pi over the network
 - No re-flashing needed after initial setup - just edit index.html on the Pi and refresh
 
@@ -92,7 +93,7 @@ Open a browser to `http://your-pi-ip:5000/api/system` - you should see JSON with
 Create a systemd service:
 
 ```bash
-sudo nano /etc/systemd/system/carthing-api.service
+sudo vim /etc/systemd/system/carthing-api.service
 ```
 
 Paste this (update paths for your username):
@@ -123,10 +124,10 @@ sudo systemctl start carthing-api
 sudo systemctl status carthing-api  # Should show "active (running)"
 ```
 
-### 6. Open Firewall Port
+### 6. Configure Firewall
 
 ```bash
-sudo ufw allow 5000/tcp comment 'Car Thing API'
+sudo ufw allow from `Your CarThing IP` to any port 5000 proto tcp comment 'Car Thing API - USB'
 sudo ufw reload
 ```
 
@@ -179,6 +180,7 @@ The Car Thing has 4 physical buttons:
 carthing-monitor/
 ├── api_server.py       # Flask backend serving stats and logs
 ├── index.html          # Dashboard UI (served by flask)
+├── access.log          # API request logs (rotated weekly)
 └── venv/              # Python virtual environment
 ```
 The Car Thing only has the `redirect.html` file -> it loads everthing else from the Pi.
@@ -235,16 +237,26 @@ GET /api/security-monitor # Runs custom security script
 GET /health              # Health check
 ```
 
-## Security Notes
+## Security Implementation
 
-- The API runs on port 5000 without authentication
-- **Only expose this on a trusted LAN**
-- Don't forward port 5000 to the internet
-- Consider adding basic auth if you're paranoid
+This porject follows security best practices:
+
+** Network Security
+- Firewall restricted to USB network only
+- No internet exposure: flask only accessable on trusted local network
+- Minimal open ports
+
+** System Security
+- Minimal sudo permissions: only specific commands allowed via sudoers
+- Virtual environment: isolated Python dependencies
+- Debug mode disabled: No system info leakage
+- Request logging: all api access logged to access.log
+
+** File Security
+- Log rotation: access.logs rotated weekly to prevent disk fill
+- Restricted file permisions: services runs on a dedicated user
 
 ## Future Ideas
-
-Things I might add:
 - Docker container monitoring
 - Plex active streams
 - Network speed graphs
@@ -264,7 +276,5 @@ Pull requests welcome if you implement any of these!
 MIT License - do whatever you want with this code.
 
 ---
-
-Built because I had a Car Thing and too much free time. Hope it's useful!
 
 If you build one, I'd love to see it - open an issue with photos!
