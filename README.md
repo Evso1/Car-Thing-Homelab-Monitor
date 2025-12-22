@@ -3,6 +3,7 @@
 Turn your discontinued Spotify Car Thing into a live monitoring dashboard for your homelab. No cloud services, no subscriptions—just a USB cable and some Python.
 
 ![System Monitor](/Screenshots/SystemMonitor-screenshot.jpg)
+
 Screenshots of other screens (without data) are available in /Screenshots
 
 ## Features
