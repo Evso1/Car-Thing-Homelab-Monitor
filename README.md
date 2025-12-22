@@ -88,50 +88,14 @@ python3 api_server.py
 
 Open a browser to `http://your-pi-ip:5000/api/system` - you should see JSON with system stats.
 
-### 5. Make It Auto-Start
-
-Create a systemd service:
-
-```bash
-sudo vim /etc/systemd/system/carthing-api.service
-```
-
-Paste this (update paths for your username):
-
-```ini
-[Unit]
-Description=Car Thing API Server
-After=network.target
-
-[Service]
-Type=simple
-User=username
-WorkingDirectory=/home/username/carthing-monitor
-ExecStart=/home/username/carthing-monitor/venv/bin/python /home/username/carthing-monitor/api_server.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start it:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable carthing-api
-sudo systemctl start carthing-api
-sudo systemctl status carthing-api  # Should show "active (running)"
-```
-
-### 6. Configure Firewall
+### 5. Configure Firewall
 
 ```bash
 sudo ufw allow from `Your CarThing IP` to any port 5000 proto tcp comment 'Car Thing API - USB'
 sudo ufw reload
 ```
 
-### 7. Push Dashboard to Car Thing
+### 6. Push Dashboard to Car Thing
 
 The Car Thing only needs a tiny redirect file that points to your Pi:
 
