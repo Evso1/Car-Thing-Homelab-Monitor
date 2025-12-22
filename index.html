@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=800, height=480">
+    <title>Homelab Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #ff8800;
+            width: 800px;
+            height: 480px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Page container */
+        .page {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            padding: 15px;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #ff8800;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            text-shadow: 0 0 10px #ff8800;
+        }
+        
+        .header .time {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        
+        /* System Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .stat-box {
+            background: #1a0a00;
+            border: 2px solid #ff8800;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .stat-detail {
+            font-size: 10px;
+            opacity: 0.6;
+        }
+        
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #1a0a00;
+            border: 1px solid #ff8800;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #ff8800;
+            transition: width 0.3s;
+        }
+        
+        /* Process List */
+        .process-list {
+            background: #1a0a00;
+            border: 2px solid #ff8800;
+            padding: 10px;
+            border-radius: 5px;
+            height: 180px;
+            overflow-y: auto;
+        }
+        
+        .process-list h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .process-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #331100;
+            font-size: 11px;
+        }
+        
+        /* Log Container */
+        .log-container {
+            background: #1a0a00;
+            border: 2px solid;
+            padding: 10px;
+            border-radius: 5px;
+            height: 380px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        .log-container.switch {
+            border-color: #ff8800;
+            color: #ff8800;
+        }
+        
+        .log-container.security {
+            border-color: #ff4400;
+            color: #ff4400;
+        }
+        
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid #331100;
+        }
+        
+        /* Navigation */
+        .nav-indicator {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            opacity: 0.6;
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid #ff8800;
+            background: transparent;
+        }
+        
+        .nav-dot.active {
+            background: #ff8800;
+        }
+        
+        /* Status colors */
+        .warning { color: #ffaa00; }
+        .critical { color: #ff0000; }
+        .success { color: #00ff00; }
+        
+        /* Error message */
+        .error-msg {
+            text-align: center;
+            margin-top: 100px;
+            font-size: 16px;
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <!-- Page 1: System Stats -->
+    <div class="page active" id="page-system">
+        <div class="header">
+            <h1>[ SYSTEM MONITOR ]</h1>
+            <div class="time" id="system-time">--:--:--</div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-label">CPU</div>
+                <div class="stat-value" id="cpu-value">--%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpu-bar"></div>
+                </div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-label">TEMP</div>
+                <div class="stat-value" id="temp-value">--°C</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-label">MEMORY</div>
+                <div class="stat-value" id="mem-value">--%</div>
+                <div class="stat-detail" id="mem-detail">-- / -- GB</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="mem-bar"></div>
+                </div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-label">DISK</div>
+                <div class="stat-value" id="disk-value">--%</div>
+                <div class="stat-detail" id="disk-detail">-- / -- GB</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="process-list">
+            <h3>TOP PROCESSES</h3>
+            <div id="process-list"></div>
+        </div>
+    </div>
+    
+    <!-- Page 2: Switch Logs -->
+    <div class="page" id="page-switch">
+        <div class="header" style="border-color: #ff8800;">
+            <h1 style="color: #ff8800; text-shadow: 0 0 10px #ff8800;">[ SWITCH LOGS ]</h1>
+            <div class="time" style="color: #ff8800;" id="switch-time">--:--:--</div>
+        </div>
+        
+        <div class="log-container switch" id="switch-logs">
+            <div class="log-line">Connecting to Pi...</div>
+        </div>
+    </div>
+    
+    <!-- Page 3: UFW Firewall -->
+    <div class="page" id="page-firewall">
+        <div class="header" style="border-color: #ff4400;">
+            <h1 style="color: #ff4400; text-shadow: 0 0 10px #ff4400;">[ FIREWALL BLOCKS ]</h1>
+            <div class="time" style="color: #ff4400;" id="firewall-time">--:--:--</div>
+        </div>
+        
+        <div class="log-container security" id="firewall-logs">
+            <div class="log-line">Connecting to Pi...</div>
+        </div>
+    </div>
+    
+    <!-- Page 4: Full Security Monitor -->
+    <div class="page" id="page-fullsec">
+        <div class="header" style="border-color: #ffaa00;">
+            <h1 style="color: #ffaa00; text-shadow: 0 0 10px #ffaa00;">[ FULL SECURITY SCAN ]</h1>
+            <div class="time" style="color: #ffaa00;" id="fullsec-time">Press Button 4 to run</div>
+        </div>
+        
+        <div class="log-container" style="border-color: #ffaa00; color: #ffaa00; font-size: 9px;" id="fullsec-output">
+            <div class="log-line">Press Button 4 to run security_monitor.sh</div>
+        </div>
+    </div>
+    
+    <!-- Navigation Indicator -->
+    <div class="nav-indicator">
+        <div class="nav-dot active" data-page="0"></div>
+        <div class="nav-dot" data-page="1"></div>
+        <div class="nav-dot" data-page="2"></div>
+        <div class="nav-dot" data-page="3"></div>
+    </div>
+    
+    <script>
+        // Configuration - UPDATE THIS with your Pi's IP address
+        const PI_IP = 'YOUR_PI_IP';  // ← REPLACE WITH YOUR ACTUAL PI IP (e.g., '192.168.1.100')
+        const API_PORT = '5000';
+        
+        let currentPage = 0;
+        const pages = ['system', 'switch', 'firewall', 'fullsec'];
+        
+        // Page navigation
+        function showPage(index) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-dot').forEach(d => d.classList.remove('active'));
+            
+            document.getElementById(`page-${pages[index]}`).classList.add('active');
+            document.querySelector(`.nav-dot[data-page="${index}"]`).classList.add('active');
+            
+            currentPage = index;
+        }
+        
+        // Car Thing button mapping
+        // Button 1 (top left) = Page 1 (System Monitor)
+        // Button 2 (top right) = Page 2 (Switch Logs)
+        // Button 3 (bottom left) = Page 3 (Firewall)
+        // Button 4 (bottom right) = Page 4 (Full Security Scan - also triggers scan)
+        document.addEventListener('keydown', (e) => {
+            console.log('Key pressed:', e.key); // Debug logging
+            
+            if (e.key === '1') {
+                // Go to System Monitor
+                currentPage = 0;
+                showPage(currentPage);
+            } else if (e.key === '2') {
+                // Go to Switch Logs
+                currentPage = 1;
+                showPage(currentPage);
+            } else if (e.key === '3') {
+                // Go to Firewall
+                currentPage = 2;
+                showPage(currentPage);
+            } else if (e.key === '4') {
+                // Go to Full Security Scan and run it
+                currentPage = 3;
+                showPage(currentPage);
+                runFullSecurityScan();
+            }
+            
+            // Also support arrow keys for testing on computer
+            if (e.key === 'ArrowLeft') {
+                currentPage = (currentPage - 1 + pages.length) % pages.length;
+                showPage(currentPage);
+            } else if (e.key === 'ArrowRight') {
+                currentPage = (currentPage + 1) % pages.length;
+                showPage(currentPage);
+            }
+        });
+        
+        // Update system stats
+        async function updateSystemStats() {
+            try {
+                const response = await fetch(`http://${PI_IP}:${API_PORT}/api/system`);
+                const data = await response.json();
+                
+                // Update time
+                document.getElementById('system-time').textContent = new Date().toLocaleTimeString();
+                
+                // CPU
+                document.getElementById('cpu-value').textContent = data.cpu.toFixed(1) + '%';
+                document.getElementById('cpu-bar').style.width = data.cpu + '%';
+                
+                // Temperature
+                if (data.temperature) {
+                    const tempEl = document.getElementById('temp-value');
+                    tempEl.textContent = data.temperature.toFixed(1) + '°C';
+                    tempEl.className = 'stat-value' + 
+                        (data.temperature > 70 ? ' warning' : '') +
+                        (data.temperature > 80 ? ' critical' : '');
+                }
+                
+                // Memory
+                document.getElementById('mem-value').textContent = data.memory.percent.toFixed(1) + '%';
+                document.getElementById('mem-detail').textContent = 
+                    `${data.memory.used} / ${data.memory.total} GB`;
+                document.getElementById('mem-bar').style.width = data.memory.percent + '%';
+                
+                // Disk
+                document.getElementById('disk-value').textContent = data.disk.percent.toFixed(1) + '%';
+                document.getElementById('disk-detail').textContent = 
+                    `${data.disk.used} / ${data.disk.total} GB`;
+                document.getElementById('disk-bar').style.width = data.disk.percent + '%';
+                
+                // Processes
+                const processList = document.getElementById('process-list');
+                processList.innerHTML = data.processes.map(proc => `
+                    <div class="process-row">
+                        <span>${proc.name}</span>
+                        <span>CPU: ${proc.cpu}% | MEM: ${proc.memory}%</span>
+                    </div>
+                `).join('');
+                
+            } catch (err) {
+                console.error('Error fetching system stats:', err);
+                document.getElementById('process-list').innerHTML = 
+                    `<div class="error-msg">Cannot connect to Pi<br>${PI_IP}:${API_PORT}</div>`;
+            }
+        }
+        
+        // Update switch logs
+        async function updateSwitchLogs() {
+            try {
+                document.getElementById('switch-time').textContent = new Date().toLocaleTimeString();
+                const response = await fetch(`http://${PI_IP}:${API_PORT}/api/switch`);
+                const data = await response.json();
+                
+                const container = document.getElementById('switch-logs');
+                container.innerHTML = data.logs.map(line => 
+                    `<div class="log-line">${line.trim()}</div>`
+                ).join('');
+                
+                // Auto-scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            } catch (err) {
+                console.error('Error fetching switch logs:', err);
+            }
+        }
+        
+        // Update firewall logs
+        async function updateFirewallLogs() {
+            try {
+                document.getElementById('firewall-time').textContent = new Date().toLocaleTimeString();
+                const response = await fetch(`http://${PI_IP}:${API_PORT}/api/security`);
+                const data = await response.json();
+                
+                const container = document.getElementById('firewall-logs');
+                container.innerHTML = data.logs.map(line => {
+                    let className = 'log-line critical';
+                    return `<div class="${className}">${line.trim()}</div>`;
+                }).join('');
+                
+                // Auto-scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            } catch (err) {
+                console.error('Error fetching firewall logs:', err);
+            }
+        }
+        
+        // Run full security monitor script
+        async function runFullSecurityScan() {
+            const container = document.getElementById('fullsec-output');
+            const timeEl = document.getElementById('fullsec-time');
+            
+            container.innerHTML = '<div class="log-line">Running security_monitor.sh...</div>';
+            timeEl.textContent = 'Running...';
+            
+            try {
+                const response = await fetch(`http://${PI_IP}:${API_PORT}/api/security-monitor`);
+                const data = await response.json();
+                
+                timeEl.textContent = data.timestamp;
+                
+                if (data.success) {
+                    container.innerHTML = data.lines.map(line => 
+                        `<div class="log-line">${line}</div>`
+                    ).join('');
+                } else {
+                    container.innerHTML = `<div class="log-line critical">Error: ${data.error}</div>`;
+                }
+                
+                // Auto-scroll to top to see summary
+                container.scrollTop = 0;
+            } catch (err) {
+                container.innerHTML = `<div class="log-line critical">Cannot connect to Pi</div>`;
+                console.error('Error running security scan:', err);
+            }
+        }
+        
+        // Update intervals
+        setInterval(updateSystemStats, 2000);
+        setInterval(updateSwitchLogs, 3000);
+        setInterval(updateFirewallLogs, 3000);
+        
+        // Initial updates
+        updateSystemStats();
+        updateSwitchLogs();
+        updateFirewallLogs();
+    </script>
+</body>
+</html>
