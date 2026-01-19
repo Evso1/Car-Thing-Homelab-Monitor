@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Car Thing Homelab Monitor - API Server
-Serves the dashboard HTML and provides system stats/log access
-"""
-
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import psutil
@@ -15,10 +10,7 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# =============================================================================
-# REQUEST LOGGING
-# =============================================================================
-
+# Setup request logging
 logging.basicConfig(
     filename=os.path.join(os.path.dirname(__file__), 'access.log'),
     level=logging.INFO,
@@ -28,37 +20,37 @@ logging.basicConfig(
 
 @app.before_request
 def log_request():
-    """Log all API requests for security monitoring"""
     logging.info(f"{request.remote_addr} - {request.method} {request.path}")
 
-# =============================================================================
-# CONFIGURATION - Update these paths for your setup
-# =============================================================================
+def read_log_tail(filepath, lines=30):
+    try:
+        result = subprocess.run(['sudo', 'tail', f'-{lines}', filepath],
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            return result.stdout.strip().split('\n')
+        else:
+            return [f"Error reading log: {result.stderr}"]
+    except Exception as e:
+        return [f"Error reading log: {str(e)}"]
 
-SWITCH_LOG_PATH = '/var/log/switch/switch.log'      # Path to your switch logs
-UFW_LOG_PATH = '/var/log/ufw.log'                   # Path to UFW firewall logs
-SECURITY_SCRIPT = '/home/user/scripts/security.sh'  # Optional: custom security script
+@app.route('/')
+def serve_index():
+    return send_from_directory(os.path.dirname(__file__), 'index.html')
 
-# =============================================================================
-# SYSTEM STATS
-# =============================================================================
-
-def get_system_stats():
-    """Gather real-time system statistics"""
+# === Page 1: Pi System Stats (Optional but included) ===
+@app.route('/api/system')
+def api_system():
     cpu_percent = psutil.cpu_percent(interval=1)
     memory = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
-    
-    # Get temperature (Raspberry Pi specific)
     try:
         with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
             temp = float(f.read()) / 1000.0
     except:
         temp = None
-    
-    # Get top 5 processes by CPU usage
+
     processes = []
-    for proc in sorted(psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']), 
+    for proc in sorted(psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']),
                       key=lambda p: p.info['cpu_percent'] or 0, reverse=True)[:5]:
         try:
             processes.append({
@@ -68,22 +60,7 @@ def get_system_stats():
             })
         except:
             continue
-    
-    # Get Docker container status
-    try:
-        docker_output = subprocess.check_output(
-            ['docker', 'ps', '--format', '{{.Names}}:{{.Status}}'], 
-            text=True, 
-            stderr=subprocess.DEVNULL
-        )
-        containers = []
-        for line in docker_output.strip().split('\n'):
-            if line:
-                name, status = line.split(':', 1)
-                containers.append({'name': name, 'status': status})
-    except:
-        containers = []
-    
+
     return {
         'cpu': cpu_percent,
         'memory': {
@@ -98,151 +75,105 @@ def get_system_stats():
         },
         'temperature': temp,
         'processes': processes,
-        'containers': containers,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
 
-# =============================================================================
-# LOG READING
-# =============================================================================
+# === Page 2: ThinkCentre Logs (Most Important) ===
+@app.route('/api/thinkcentre')
+def api_thinkcentre():
+    logs = []
+    base_dir = '/var/log/remote/engine-uity'
+    if os.path.exists(base_dir):
+        # Priority logs: security + critical services
+        priority_files = [
+            'auth.log', 'sshd.log', 'sudo.log', 'fail2ban-server.log',
+            'kernel.log', 'dockerd.log', 'tor.log', 'auditd.log'
+        ]
+        for filename in priority_files:
+            path = os.path.join(base_dir, filename)
+            if os.path.exists(path):
+                logs.extend(read_log_tail(path, 8))
+    return jsonify({'logs': logs[-30:], 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
 
-def read_log_tail(filepath, lines=30):
-    """Read last N lines from a log file"""
-    try:
-        result = subprocess.run(
-            ['sudo', 'tail', f'-{lines}', filepath], 
-            capture_output=True, 
-            text=True, 
-            timeout=5
-        )
-        if result.returncode == 0:
-            return result.stdout.strip().split('\n')
-        else:
-            return [f"Error reading log: Permission denied"]
-    except subprocess.TimeoutExpired:
-        return [f"Error reading log: Timeout"]
-    except Exception as e:
-        return [f"Error reading log: {str(e)}"]
+# === Page 3: Pi Logs (Most Important) ===
+@app.route('/api/pi')
+def api_pi():
+    logs = []
+    base_dir = '/var/log/remote/raspberrypi'
+    if os.path.exists(base_dir):
+        priority_files = [
+            'pihole.log', 'Tor.log', 'fail2ban.log', 'auth.log', 'ufw.log'
+        ]
+        for filename in priority_files:
+            path = os.path.join(base_dir, filename)
+            if os.path.exists(path):
+                logs.extend(read_log_tail(path, 8))
+    return jsonify({'logs': logs[-30:], 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
 
-def run_security_monitor():
-    """Execute custom security monitoring script"""
-    try:
-        result = subprocess.run(
-            ['bash', SECURITY_SCRIPT], 
-            capture_output=True, 
-            text=True, 
-            timeout=10
-        )
-        if result.returncode == 0:
-            output = result.stdout
-            return {
-                'success': True,
-                'output': output,
-                'lines': output.split('\n'),
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
-        else:
-            return {
-                'success': False,
-                'error': 'Script execution failed',
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
-    except subprocess.TimeoutExpired:
-        return {
-            'success': False,
-            'error': 'Script timeout',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-    except Exception as e:
-        return {
-            'success': False,
-            'error': 'Script error',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-
-# =============================================================================
-# ROUTES
-# =============================================================================
-
-@app.route('/')
-def serve_index():
-    """Serve the main dashboard HTML"""
-    return send_from_directory(os.path.dirname(__file__), 'index.html')
-
-@app.route('/api/system')
-def api_system():
-    """System statistics endpoint"""
-    return jsonify(get_system_stats())
-
+# === Page 4: Switch Logs ===
 @app.route('/api/switch')
 def api_switch():
-    """Switch/network logs endpoint"""
-    logs = read_log_tail(SWITCH_LOG_PATH, 30)
-    return jsonify({
-        'logs': logs,
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    })
+    logs = []
+    base_dir = '/var/log/remote/switchc73365'
+    if os.path.exists(base_dir):
+        for filename in sorted(os.listdir(base_dir)):
+            if filename.endswith('.log'):
+                logs.extend(read_log_tail(os.path.join(base_dir, filename), 5))
+    return jsonify({'logs': logs[-30:], 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
 
-@app.route('/api/security')
-def api_security():
-    """Firewall logs endpoint"""
-    logs = read_log_tail(UFW_LOG_PATH, 30)
-    # Filter for BLOCK entries
-    block_logs = [line for line in logs if '[UFW BLOCK]' in line]
-    return jsonify({
-        'logs': block_logs if block_logs else logs,
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    })
+# === Page 5: All Logs Browser ===
+@app.route('/api/all-logs')
+def api_all_logs():
+    logs = []
+    base_dirs = [
+        ('ThinkCentre', '/var/log/remote/engine-uity'),
+        ('Pi', '/var/log/remote/raspberrypi'),
+        ('Switch', '/var/log/remote/switchc73365')
+    ]
 
-@app.route('/api/security-monitor')
-def api_security_monitor():
-    """Run full security monitoring script"""
-    result = run_security_monitor()
-    return jsonify(result)
+    for host, base_dir in base_dirs:
+        if os.path.exists(base_dir):
+            for filename in sorted(os.listdir(base_dir)):
+                if filename.endswith('.log'):
+                    filepath = os.path.join(base_dir, filename)
+                    try:
+                        size = os.path.getsize(filepath)
+                        logs.append({
+                            'name': f"{host}/{filename}",
+                            'path': filepath,
+                            'size': f"{size // 1024} KB"
+                        })
+                    except OSError:
+                        continue
+    return jsonify({'logs': logs})
 
-@app.route('/api/ssh-logs')
-def api_ssh_logs():
-    """SSH authentication logs from journalctl"""
+# === View Any Log File ===
+@app.route('/api/log')
+def api_log():
+    path = request.args.get('path')
+    if not path or not path.startswith('/var/log/remote/'):
+        return jsonify({'error': 'Invalid or unsafe path'}), 400
+
     try:
-        result = subprocess.run(
-            ['sudo', 'journalctl', '-u', 'ssh', '--since', '24 hours ago', '-n', '30'], 
-            capture_output=True, 
-            text=True, 
-            timeout=5
-        )
-        logs = result.stdout.strip().split('\n') if result.returncode == 0 else ['Error reading SSH logs']
+        lines = read_log_tail(path, 50)
         return jsonify({
-            'logs': logs,
+            'logs': lines,
+            'path': path,
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
     except Exception as e:
         return jsonify({
-            'logs': [f"Error: {str(e)}"],
+            'error': str(e),
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        })
+        }), 500
 
+# Health check
 @app.route('/health')
 def health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'ok', 
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    })
-
-# =============================================================================
-# MAIN
-# =============================================================================
+    return jsonify({'status': 'ok', 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
 
 if __name__ == '__main__':
     print("="*50)
     print("Car Thing API Server Starting...")
     print("="*50)
-    print(f"Switch logs: {SWITCH_LOG_PATH}")
-    print(f"UFW logs: {UFW_LOG_PATH}")
-    print(f"Security script: {SECURITY_SCRIPT}")
-    print("="*50)
-    print("Server running on http://0.0.0.0:5000")
-    print("="*50)
-    
-    # Run server with debug disabled for security
     app.run(host='0.0.0.0', port=5000, debug=False)
